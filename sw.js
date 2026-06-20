@@ -2,7 +2,7 @@
 // Caches the app shell so it loads instantly and works offline (login screen)
 // Stream data is always fetched live — never cached
 
-const CACHE = 'mcscruffs-v15';
+const CACHE = 'mcscruffs-v16';
 
 // App shell — files to cache on install
 const SHELL = [
@@ -58,22 +58,35 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // App shell + CDN libs: cache-first, fall back to network
+  // Page navigations + the HTML itself: NETWORK-FIRST so updates always show.
+  // Falls back to the cached copy only when offline.
+  const isHtml = event.request.mode === 'navigate' ||
+                 url.pathname === '/mcscruff-iptv/' ||
+                 url.pathname.endsWith('/index.html');
+  if (isHtml) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE).then(cache => cache.put('/mcscruff-iptv/index.html', clone));
+        }
+        return response;
+      }).catch(() => caches.match('/mcscruff-iptv/index.html'))
+    );
+    return;
+  }
+
+  // Everything else (CDN libs, icons, manifest): cache-first — these are
+  // versioned/stable, so serving from cache is safe and fast.
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        // Cache successful GET responses
         if (event.request.method === 'GET' && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE).then(cache => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => {
-        // Offline fallback — return index.html for navigation requests
-        if (event.request.mode === 'navigate') {
-          return caches.match('/mcscruff-iptv/index.html');
-        }
       });
     })
   );
