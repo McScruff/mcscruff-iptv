@@ -1558,11 +1558,13 @@ function loadStream(url, name, isLive, format, attempt) {
 
       hlsInstance.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
         const levels = data.levels || [];
+        ltxt.textContent = `Manifest OK · ${levels.length} levels`;
 
         // Check each level for HEVC codec strings
         const isHevc = c => /hvc1|hev1|dvh1/i.test(c || '');
         const hevcLevels  = levels.filter(l => isHevc(l.videoCodec) || isHevc(l.attrs?.CODECS));
         const h264Levels  = levels.filter(l => !isHevc(l.videoCodec) && !isHevc(l.attrs?.CODECS));
+        ltxt.textContent = `Manifest OK · ${levels.length} levels · HEVC:${hevcLevels.length} H264:${h264Levels.length}`;
 
         if (levels.length > 0 && hevcLevels.length === levels.length && attempt === 1) {
           // All variants HEVC — fall straight to TS
@@ -1588,6 +1590,7 @@ function loadStream(url, name, isLive, format, attempt) {
       let netRetries = 0;
       hlsInstance.on(Hls.Events.ERROR, (_, data) => {
         if (!data.fatal) return;
+        ltxt.textContent = `HLS error: ${data.type} / ${data.details}`;
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR && netRetries < 2) {
           netRetries++;
           hlsInstance.startLoad();
