@@ -1560,9 +1560,14 @@ function loadStream(url, name, isLive, format, attempt) {
         player.play().catch(() => {});
       });
 
+      let netRetries = 0;
       hlsInstance.on(Hls.Events.ERROR, (_, data) => {
         if (!data.fatal) return;
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) { hlsInstance.startLoad(); return; }
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && netRetries < 2) {
+          netRetries++;
+          hlsInstance.startLoad();
+          return;
+        }
         if (attempt === 1) {
           hlsInstance.destroy(); hlsInstance = null;
           loadStream(url.replace(/\.m3u8$/, '.ts'), name, isLive, 'mpegts', 2);
