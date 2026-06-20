@@ -1039,7 +1039,7 @@
             <span class="vol-icon" onclick="toggleMute()" id="vol-icon">🔊</span>
             <input type="range" id="vol-slider" min="0" max="100" value="80" oninput="setVol(this.value)" />
           </div>
-          <button class="ctrl-btn" onclick="openCurrentInVlc()" title="Open in VLC" id="vlc-btn" style="font-size:11px;font-weight:600;">VLC</button>
+          <button class="ctrl-btn" onclick="openCurrentInVlc()" title="Open in external player" id="vlc-btn" style="font-size:13px;">↗</button>
           <button class="ctrl-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
         </div>
       </div>
@@ -1805,7 +1805,7 @@ function showHevcError(hlsUrl, name) {
   txt.style.lineHeight = '1.8';
   const isAndroid = CODEC.isAndroid();
   const footer = isAndroid
-    ? `Tap <strong style="color:var(--text)">Open in VLC</strong> — install <strong style="color:var(--text)">VLC for Android</strong> from the Play Store if you don't have it`
+    ? `Pick a player that supports HEVC — <strong style="color:var(--text)">VLC</strong> or <strong style="color:var(--text)">MX Player</strong> work well`
     : `Edge users: install <strong style="color:var(--text)">HEVC Video Extensions</strong> from the Microsoft Store`;
   txt.innerHTML = `
     <div style="font-size:13px;color:var(--text);margin-bottom:6px;font-weight:600;">H.265/HEVC — your browser can't decode this</div>
@@ -1825,7 +1825,7 @@ function showHevcError(hlsUrl, name) {
         background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;
         font-family:Inter,sans-serif;font-size:12px;font-weight:600;padding:10px 16px;border-radius:7px;
         cursor:pointer;width:240px;-webkit-tap-highlight-color:transparent;">
-        ▶ Open in VLC
+        ▶ ${isAndroid ? 'Open in player…' : 'Open in VLC'}
       </button>
       <div style="font-size:10px;color:var(--muted);margin-top:4px;text-align:center;line-height:1.6">
         ${footer}
@@ -1852,27 +1852,43 @@ function openInVlc(url) {
     return;
   }
 
-  // ── Android: intent:// URL launches VLC directly ──
+  // ── Android: package-less intent shows the system "Open with…" chooser ──
   if (isAndroid) {
-    // Split scheme from the rest for the intent URI
     const m = url.match(/^(https?):\/\/(.+)$/);
     if (m) {
       const scheme = m[1], rest = m[2];
-      // Fallback to the Play Store if VLC isn't installed
-      const fallback = encodeURIComponent('https://play.google.com/store/apps/details?id=org.videolan.vlc');
+      // No package= → Android offers every installed video player.
+      // If nothing handles it, fall back to the .m3u download below.
+      const fallback = encodeURIComponent('about:blank');
       const intentUrl =
         'intent://' + rest +
         '#Intent;scheme=' + scheme +
-        ';package=org.videolan.vlc' +
+        ';type=video/*' +
+        ';action=android.intent.action.VIEW' +
         ';S.title=' + encodeURIComponent(currentStream?.name || 'Stream') +
         ';S.browser_fallback_url=' + fallback +
         ';end';
+      // If the chooser doesn't appear shortly, fall back to the .m3u download
+      // (tapping the downloaded file always triggers Android's app picker).
+      const before = Date.now();
+      const fallbackTimer = setTimeout(() => {
+        if (Date.now() - before < 2500 && document.visibilityState === 'visible') {
+          downloadM3u(url);
+        }
+      }, 1200);
+      window.addEventListener('pagehide', () => clearTimeout(fallbackTimer), { once: true });
       window.location.href = intentUrl;
       return;
     }
   }
 
-  // ── Desktop (Windows/Mac): download .m3u — double-click opens VLC ──
+  // ── Desktop (Windows/Mac): download .m3u — double-click / "open with" a player ──
+  downloadM3u(url);
+}
+
+// Download a one-line .m3u playlist. On desktop, double-click opens the default
+// player; on Android, tapping the downloaded file triggers the "Open with…" chooser.
+function downloadM3u(url) {
   const m3u = '#EXTM3U\n#EXTINF:-1,' + (currentStream?.name || 'Stream') + '\n' + url;
   const blob = new Blob([m3u], { type: 'audio/x-mpegurl' });
   const blobUrl = URL.createObjectURL(blob);
@@ -1885,7 +1901,7 @@ function openInVlc(url) {
   setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
 }
 
-// Open whatever is currently loaded in VLC (from the controls bar button)
+// Open whatever is currently loaded in an external player (from the controls bar button)
 function openCurrentInVlc() {
   if (!currentStream?.url) { showError('No stream selected'); return; }
   openInVlc(currentStream.url);
