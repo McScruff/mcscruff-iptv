@@ -2,7 +2,7 @@
 // Caches the app shell so it loads instantly and works offline (login screen)
 // Stream data is always fetched live — never cached
 
-const CACHE = 'mcscruffs-v8';
+const CACHE = 'mcscruffs-v9';
 
 // App shell — files to cache on install
 const SHELL = [

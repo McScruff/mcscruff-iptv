@@ -1511,6 +1511,9 @@ function fmtDur(secs) {
 }
 
 // ── MULTI-CODEC STREAM LOADER ──
+let _loadTimer = null;
+function clearLoadTimer() { if (_loadTimer) { clearTimeout(_loadTimer); _loadTimer = null; } }
+
 function loadStream(url, name, isLive, format, attempt) {
   attempt = attempt || 1;
   const player  = document.getElementById('player');
@@ -1531,7 +1534,14 @@ function loadStream(url, name, isLive, format, attempt) {
   player.style.display = 'none';
 
   destroyEngines(player);
+  clearLoadTimer();
   const ci = CODEC.info(format);
+
+  // Give up and show error after 15 s of silence
+  _loadTimer = setTimeout(() => {
+    destroyEngines(player);
+    showHevcError(url.replace(/\.ts$/, '.m3u8'), name);
+  }, 15000);
 
   // ── HLS with HEVC detection ──
   if (format === 'hls') {
@@ -1553,8 +1563,9 @@ function loadStream(url, name, isLive, format, attempt) {
         const hevcLevels  = levels.filter(l => isHevc(l.videoCodec) || isHevc(l.attrs?.CODECS));
         const h264Levels  = levels.filter(l => !isHevc(l.videoCodec) && !isHevc(l.attrs?.CODECS));
 
-        if (hevcLevels.length === levels.length && attempt === 1) {
+        if (levels.length > 0 && hevcLevels.length === levels.length && attempt === 1) {
           // All variants HEVC — fall straight to TS
+          clearLoadTimer();
           hlsInstance.destroy(); hlsInstance = null;
           loadStream(url.replace(/\.m3u8$/, '.ts'), name, isLive, 'mpegts', 2);
           return;
@@ -1675,6 +1686,7 @@ function showEngine(engineName, ci) {
 }
 
 function hideOverlay() {
+  clearLoadTimer();
   const player  = document.getElementById('player');
   const overlay = document.getElementById('video-overlay');
   overlay.style.display = 'none';
