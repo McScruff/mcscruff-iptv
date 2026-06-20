@@ -2,7 +2,7 @@
   "name": "McScruffs IPTV Player",
   "short_name": "McScruffs",
   "description": "Xtream Codes IPTV player with Live TV, VOD and EPG",
-  "start_url": "/index.html",
+  "start_url": "/mcscruff-iptv/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0a0800",

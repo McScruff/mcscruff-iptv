@@ -2,12 +2,12 @@
 // Caches the app shell so it loads instantly and works offline (login screen)
 // Stream data is always fetched live — never cached
 
-const CACHE = 'mcscruffs-v4';
+const CACHE = 'mcscruffs-v5';
 
 // App shell — files to cache on install
 const SHELL = [
-  '/',
-  '/index.html',
+  '/mcscruff-iptv/',
+  '/mcscruff-iptv/index.html',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
