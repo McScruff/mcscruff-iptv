@@ -1728,9 +1728,16 @@ function copyStreamUrl(url) {
 }
 
 function openInVlc(url) {
-  // vlc:// replaces the http:// or https:// prefix
-  const stripped = url.replace(/^https?:\/\//, '');
-  window.location.href = 'vlc://' + stripped;
+  const m3u = '#EXTM3U\n#EXTINF:-1,' + (currentStream?.name || 'Stream') + '\n' + url;
+  const blob = new Blob([m3u], { type: 'audio/x-mpegurl' });
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = 'stream.m3u';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
 }
 
 // ── EPG ──
@@ -1854,12 +1861,16 @@ function fmtTime(ms) {
 }
 
 function decodeEpgTitle(str) {
-  // EPG titles sometimes come base64 encoded
   if (!str) return '';
+  // Pre-check: plain text always has characters outside the base64 alphabet
+  // (spaces, apostrophes, punctuation etc.) \u2014 return immediately
+  const clean = str.trim().replace(/\s/g, '');
+  if (clean.length < 4 || /[^A-Za-z0-9+/=\-_]/.test(clean)) return str;
   try {
-    const decoded = atob(str);
-    // Only use if result is printable ASCII / UTF text
-    if (/^[\x20-\x7E\u00A0-\uFFFF\s]+$/.test(decoded)) return decoded;
+    const b64 = clean.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const decoded = atob(padded);
+    if (decoded.length > 0) return decoded;
   } catch(e) {}
   return str;
 }
