@@ -1039,6 +1039,7 @@
             <span class="vol-icon" onclick="toggleMute()" id="vol-icon">🔊</span>
             <input type="range" id="vol-slider" min="0" max="100" value="80" oninput="setVol(this.value)" />
           </div>
+          <button class="ctrl-btn" onclick="openCurrentInVlc()" title="Open in VLC" id="vlc-btn" style="font-size:11px;font-weight:600;">VLC</button>
           <button class="ctrl-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
         </div>
       </div>
@@ -1528,7 +1529,12 @@ function fmtDur(secs) {
 
 // ── MULTI-CODEC STREAM LOADER ──
 let _loadTimer = null;
-function clearLoadTimer() { if (_loadTimer) { clearTimeout(_loadTimer); _loadTimer = null; } }
+let _videoWatch = null;
+let _playingHandler = null;
+function clearLoadTimer() {
+  if (_loadTimer) { clearTimeout(_loadTimer); _loadTimer = null; }
+  if (_videoWatch) { clearTimeout(_videoWatch); _videoWatch = null; }
+}
 
 function loadStream(url, name, isLive, format, attempt) {
   attempt = attempt || 1;
@@ -1559,6 +1565,23 @@ function loadStream(url, name, isLive, format, attempt) {
     destroyEngines(player);
     showHevcError(url.replace(/\.ts$/, '.m3u8'), name);
   }, 15000);
+
+  // Audio-only watchdog: if playback starts but no video frame ever appears,
+  // the video track is an undecodable codec (e.g. HEVC on Android Chrome).
+  if (_playingHandler) player.removeEventListener('playing', _playingHandler);
+  _playingHandler = function onPlaying() {
+    player.removeEventListener('playing', _playingHandler);
+    _playingHandler = null;
+    if (_videoWatch) clearTimeout(_videoWatch);
+    _videoWatch = setTimeout(() => {
+      if (!player.paused && player.currentTime > 0 &&
+          player.videoWidth === 0 && player.videoHeight === 0) {
+        destroyEngines(player);
+        showHevcError(url.replace(/\.ts$/, '.m3u8'), name);
+      }
+    }, 4000);
+  };
+  player.addEventListener('playing', _playingHandler);
 
   // ── HLS with HEVC detection ──
   if (format === 'hls') {
@@ -1835,10 +1858,15 @@ function openInVlc(url) {
     const m = url.match(/^(https?):\/\/(.+)$/);
     if (m) {
       const scheme = m[1], rest = m[2];
+      // Fallback to the Play Store if VLC isn't installed
+      const fallback = encodeURIComponent('https://play.google.com/store/apps/details?id=org.videolan.vlc');
       const intentUrl =
         'intent://' + rest +
         '#Intent;scheme=' + scheme +
-        ';package=org.videolan.vlc;type=video/*;end';
+        ';package=org.videolan.vlc' +
+        ';S.title=' + encodeURIComponent(currentStream?.name || 'Stream') +
+        ';S.browser_fallback_url=' + fallback +
+        ';end';
       window.location.href = intentUrl;
       return;
     }
@@ -1855,6 +1883,12 @@ function openInVlc(url) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+}
+
+// Open whatever is currently loaded in VLC (from the controls bar button)
+function openCurrentInVlc() {
+  if (!currentStream?.url) { showError('No stream selected'); return; }
+  openInVlc(currentStream.url);
 }
 
 // ── EPG ──
