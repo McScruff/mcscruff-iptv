@@ -1805,7 +1805,7 @@ function showHevcError(hlsUrl, name) {
   txt.style.lineHeight = '1.8';
   const isAndroid = CODEC.isAndroid();
   const footer = isAndroid
-    ? `Pick a player that supports HEVC — <strong style="color:var(--text)">VLC</strong> or <strong style="color:var(--text)">MX Player</strong> work well`
+    ? `<strong style="color:var(--text)">VLC</strong> opens directly. Other players (mpv, MX) download a <strong style="color:var(--text)">.m3u</strong> — tap it in your downloads and pick the player`
     : `Edge users: install <strong style="color:var(--text)">HEVC Video Extensions</strong> from the Microsoft Store`;
   txt.innerHTML = `
     <div style="font-size:13px;color:var(--text);margin-bottom:6px;font-weight:600;">H.265/HEVC — your browser can't decode this</div>
@@ -1899,6 +1899,27 @@ function downloadM3u(url) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    showToast('Saved <b>stream.m3u</b> — tap it in your downloads, then pick a player');
+  }
+}
+
+let _toastTimer = null;
+function showToast(html) {
+  let t = document.getElementById('app-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'app-toast';
+    t.style.cssText = `position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+      max-width:88vw;background:rgba(20,18,14,0.96);color:#fff;border:1px solid var(--border);
+      font-family:Inter,sans-serif;font-size:13px;line-height:1.5;padding:12px 16px;border-radius:10px;
+      z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,0.5);text-align:center;opacity:0;transition:opacity .2s;`;
+    document.body.appendChild(t);
+  }
+  t.innerHTML = html;
+  requestAnimationFrame(() => { t.style.opacity = '1'; });
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 5000);
 }
 
 // Open whatever is currently loaded in an external player (from the controls bar button)
