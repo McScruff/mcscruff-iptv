@@ -1535,6 +1535,7 @@ function loadStream(url, name, isLive, format, attempt) {
 
   destroyEngines(player);
   clearLoadTimer();
+  document.getElementById('tap-to-play')?.remove();
   const ci = CODEC.info(format);
 
   // Give up and show error after 15 s of silence
@@ -1581,7 +1582,7 @@ function loadStream(url, name, isLive, format, attempt) {
         }
 
         hideOverlay();
-        player.play().catch(() => {});
+        player.play().catch(() => showTapToPlay());
       });
 
       let netRetries = 0;
@@ -1642,7 +1643,7 @@ function loadStream(url, name, isLive, format, attempt) {
       player.addEventListener('loadedmetadata', () => {
         showEngine(`mpegts.js`, ci);
         hideOverlay();
-        player.play().catch(() => {});
+        player.play().catch(() => showTapToPlay());
       }, { once: true });
       return;
     }
@@ -1662,7 +1663,7 @@ function loadStream(url, name, isLive, format, attempt) {
   // ── Native fallback ──
   player.src = url;
   showEngine('Native', ci);
-  player.addEventListener('canplay', () => { hideOverlay(); player.play().catch(() => {}); }, { once: true });
+  player.addEventListener('canplay', () => { hideOverlay(); player.play().catch(() => showTapToPlay()); }, { once: true });
   player.addEventListener('error', () => showHevcError(url, name), { once: true });
   player.load();
   player.volume = document.getElementById('vol-slider').value / 100;
@@ -1693,6 +1694,25 @@ function hideOverlay() {
   overlay.classList.remove('interactive');
   player.style.display = 'block';
   player.volume = document.getElementById('vol-slider').value / 100;
+}
+
+function showTapToPlay() {
+  const player  = document.getElementById('player');
+  const videoWrap = document.getElementById('video-wrap');
+  player.style.display = 'block';
+  const btn = document.createElement('div');
+  btn.id = 'tap-to-play';
+  btn.style.cssText = `position:absolute;inset:0;display:flex;align-items:center;
+    justify-content:center;z-index:20;cursor:pointer;background:rgba(0,0,0,0.3)`;
+  btn.innerHTML = `<div style="width:72px;height:72px;border-radius:50%;
+    background:rgba(249,115,22,0.9);display:flex;align-items:center;justify-content:center;
+    font-size:28px;padding-left:6px;">▶</div>`;
+  btn.onclick = () => {
+    player.play().catch(() => {});
+    btn.remove();
+  };
+  document.getElementById('tap-to-play')?.remove();
+  videoWrap.appendChild(btn);
 }
 
 function showError(msg) {
