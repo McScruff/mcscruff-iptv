@@ -1155,6 +1155,22 @@ const CODEC = {
   canMP4(el)  { return el.canPlayType('video/mp4') !== ''; },
   canWebM(el) { return el.canPlayType('video/webm') !== ''; },
 
+  // Can this browser decode HEVC/H.265? (Android Chrome usually can't)
+  canHEVC() {
+    const types = [
+      'video/mp4; codecs="hvc1.1.6.L93.B0"',
+      'video/mp4; codecs="hev1.1.6.L93.B0"',
+    ];
+    // MSE check (what hls.js/mpegts.js actually use)
+    if (typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported) {
+      if (types.some(t => MediaSource.isTypeSupported(t))) return true;
+    }
+    // Native element fallback check
+    const v = document.createElement('video');
+    return types.some(t => v.canPlayType(t) !== '');
+  },
+  isAndroid() { return /Android/i.test(navigator.userAgent); },
+
   // Codec details for display
   info(type) {
     const map = {
@@ -1569,16 +1585,23 @@ function loadStream(url, name, isLive, format, attempt) {
 
       hlsInstance.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
         const levels = data.levels || [];
-        ltxt.textContent = `Manifest OK · ${levels.length} levels`;
 
         // Check each level for HEVC codec strings
         const isHevc = c => /hvc1|hev1|dvh1/i.test(c || '');
         const hevcLevels  = levels.filter(l => isHevc(l.videoCodec) || isHevc(l.attrs?.CODECS));
         const h264Levels  = levels.filter(l => !isHevc(l.videoCodec) && !isHevc(l.attrs?.CODECS));
-        ltxt.textContent = `Manifest OK · ${levels.length} levels · HEVC:${hevcLevels.length} H264:${h264Levels.length}`;
+        const allHevc = levels.length > 0 && hevcLevels.length === levels.length;
 
-        if (levels.length > 0 && hevcLevels.length === levels.length && attempt === 1) {
-          // All variants HEVC — fall straight to TS
+        if (allHevc && !CODEC.canHEVC()) {
+          // This browser (e.g. Android Chrome) has no HEVC decoder — TS won't help either.
+          clearLoadTimer();
+          hlsInstance.destroy(); hlsInstance = null;
+          showHevcError(url, name);
+          return;
+        }
+
+        if (allHevc && attempt === 1) {
+          // All variants HEVC but device may decode it — try TS path
           clearLoadTimer();
           hlsInstance.destroy(); hlsInstance = null;
           loadStream(url.replace(/\.m3u8$/, '.ts'), name, isLive, 'mpegts', 2);
@@ -1601,7 +1624,6 @@ function loadStream(url, name, isLive, format, attempt) {
       let netRetries = 0;
       hlsInstance.on(Hls.Events.ERROR, (_, data) => {
         if (!data.fatal) return;
-        ltxt.textContent = `HLS error: ${data.type} / ${data.details}`;
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR && netRetries < 2) {
           netRetries++;
           hlsInstance.startLoad();
@@ -1758,11 +1780,15 @@ function showHevcError(hlsUrl, name) {
   txt.style.display = 'block';
   txt.style.opacity = '1';
   txt.style.lineHeight = '1.8';
+  const isAndroid = CODEC.isAndroid();
+  const footer = isAndroid
+    ? `Tap <strong style="color:var(--text)">Open in VLC</strong> — install <strong style="color:var(--text)">VLC for Android</strong> from the Play Store if you don't have it`
+    : `Edge users: install <strong style="color:var(--text)">HEVC Video Extensions</strong> from the Microsoft Store`;
   txt.innerHTML = `
-    <div style="font-size:13px;color:var(--text);margin-bottom:6px;font-weight:600;">H.265/HEVC — not supported in Chrome/Edge</div>
+    <div style="font-size:13px;color:var(--text);margin-bottom:6px;font-weight:600;">H.265/HEVC — your browser can't decode this</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.7;">
-      All automatic fallbacks failed.<br>
-      Try one of the options below to watch this channel.
+      ${isAndroid ? 'Android Chrome has no HEVC decoder.' : 'Chrome/Edge can\'t play HEVC video.'}<br>
+      Use one of the options below to watch this channel.
     </div>
     <div style="display:flex;flex-direction:column;gap:8px;align-items:center;">
       <button onclick="copyStreamUrl('${hlsUrl.replace(/'/g,"\\'")}');event.stopPropagation()" style="
@@ -1779,7 +1805,7 @@ function showHevcError(hlsUrl, name) {
         ▶ Open in VLC
       </button>
       <div style="font-size:10px;color:var(--muted);margin-top:4px;text-align:center;line-height:1.6">
-        Edge users: install <strong style="color:var(--text)">HEVC Video Extensions</strong> from the Microsoft Store
+        ${footer}
       </div>
     </div>`;
 }
@@ -1792,6 +1818,33 @@ function copyStreamUrl(url) {
 }
 
 function openInVlc(url) {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(ua);
+
+  // ── iOS: VLC x-callback URL scheme launches the app directly ──
+  if (isIOS) {
+    window.location.href = 'vlc-x-callback://x-callback-url/stream?url=' + encodeURIComponent(url);
+    return;
+  }
+
+  // ── Android: intent:// URL launches VLC directly ──
+  if (isAndroid) {
+    // Split scheme from the rest for the intent URI
+    const m = url.match(/^(https?):\/\/(.+)$/);
+    if (m) {
+      const scheme = m[1], rest = m[2];
+      const intentUrl =
+        'intent://' + rest +
+        '#Intent;scheme=' + scheme +
+        ';package=org.videolan.vlc;type=video/*;end';
+      window.location.href = intentUrl;
+      return;
+    }
+  }
+
+  // ── Desktop (Windows/Mac): download .m3u — double-click opens VLC ──
   const m3u = '#EXTM3U\n#EXTINF:-1,' + (currentStream?.name || 'Stream') + '\n' + url;
   const blob = new Blob([m3u], { type: 'audio/x-mpegurl' });
   const blobUrl = URL.createObjectURL(blob);
