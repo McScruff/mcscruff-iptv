@@ -930,7 +930,7 @@
 
     <div class="field">
       <label>Server URL</label>
-      <input id="in-server" type="url" placeholder="http://your-server.com:8080" />
+      <input id="in-server" type="url" placeholder="http://your-server.com:8080" oninput="checkHttpWarn()" />
     </div>
     <div class="field">
       <label>Username</label>
@@ -951,6 +951,13 @@
 
     <button class="login-btn" id="login-btn" onclick="doLogin()">Connect</button>
     <div class="login-error" id="login-error"></div>
+    <div id="http-warning" style="display:none;margin-top:10px;padding:10px 12px;
+      background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.4);
+      border-radius:8px;font-size:11px;color:#fb923c;line-height:1.6;">
+      ⚠️ Your server uses <strong>http://</strong> — streams may not load on Android or iOS.
+      Try changing it to <strong>https://</strong>, or on Android go to
+      Chrome/Brave Settings → Site Settings → Insecure content → allow for this site.
+    </div>
 
     <p class="login-note">
       Connects to any Xtream Codes / Xtream UI compatible server.<br>
@@ -1201,6 +1208,12 @@ function clearSaved() {
 }
 
 // ── LOGIN ──
+function checkHttpWarn() {
+  const val = document.getElementById('in-server').value.trim();
+  const show = val.startsWith('http://');
+  document.getElementById('http-warning').style.display = show ? 'block' : 'none';
+}
+
 async function doLogin() {
   const server = document.getElementById('in-server').value.trim().replace(/\/$/, '');
   const user   = document.getElementById('in-user').value.trim();
@@ -1934,6 +1947,7 @@ document.addEventListener('keydown', e => {
 
 // Load saved credentials on startup
 loadSavedCreds();
+checkHttpWarn();
 
 // ── SERVICE WORKER (PWA) ──
 if ('serviceWorker' in navigator) {
