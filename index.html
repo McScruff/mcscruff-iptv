@@ -1862,15 +1862,15 @@ function fmtTime(ms) {
 
 function decodeEpgTitle(str) {
   if (!str) return '';
-  // Pre-check: plain text always has characters outside the base64 alphabet
-  // (spaces, apostrophes, punctuation etc.) \u2014 return immediately
+  // Pre-check: plain text has characters outside the base64 alphabet
   const clean = str.trim().replace(/\s/g, '');
   if (clean.length < 4 || /[^A-Za-z0-9+/=\-_]/.test(clean)) return str;
   try {
     const b64 = clean.replace(/-/g, '+').replace(/_/g, '/');
     const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
-    const decoded = atob(padded);
-    if (decoded.length > 0) return decoded;
+    const bytes = Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+    const text = new TextDecoder('utf-8').decode(bytes);
+    if (text.length > 0) return text;
   } catch(e) {}
   return str;
 }
