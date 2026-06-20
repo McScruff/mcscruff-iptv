@@ -1546,6 +1546,17 @@ function loadStream(url, name, isLive, format, attempt) {
 
   // ── HLS with HEVC detection ──
   if (format === 'hls') {
+    // iOS Safari: always use native HLS — bypasses CORS and supports HEVC natively
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS && CODEC.canSafariHLS(player)) {
+      player.src = url;
+      showEngine('Native HLS · iOS', ci);
+      player.addEventListener('loadedmetadata', () => { hideOverlay(); player.play().catch(() => showTapToPlay()); }, { once: true });
+      player.addEventListener('error', () => showHevcError(url, name), { once: true });
+      return;
+    }
+
     if (CODEC.canHLS()) {
       hlsInstance = new Hls({
         enableWorker: true,
