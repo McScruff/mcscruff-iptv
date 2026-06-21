@@ -1,6 +1,6 @@
 {
-  "name": "McScruffs IPTV Player",
-  "short_name": "McScruffs",
+  "name": "Orbital-Lite",
+  "short_name": "Orbital-Lite",
   "description": "Xtream Codes IPTV player with Live TV, VOD and EPG",
   "start_url": "/mcscruff-iptv/",
   "display": "standalone",
