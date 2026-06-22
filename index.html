@@ -31,6 +31,25 @@
     --success:   #22c55e;
     --error:     #f87171;
     --live:      #ef4444;
+    --login-grad-1: #2a1500;
+    --login-grad-2: #0a0800;
+  }
+
+  /* ── SMARTERS THEME (blue) ── */
+  :root[data-theme="smarters"] {
+    --bg:        #0a1120;
+    --surface:   #0f1a30;
+    --card:      #16243f;
+    --border:    #29395d;
+    --accent:    #2f80ed;
+    --accent2:   #56a0f5;
+    --text:      #eaf1fb;
+    --muted:     #6f82a6;
+    --success:   #22c55e;
+    --error:     #f87171;
+    --live:      #ef4444;
+    --login-grad-1: #16365e;
+    --login-grad-2: #0a1120;
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -51,7 +70,7 @@
     align-items: center;
     justify-content: center;
     height: 100vh;
-    background: radial-gradient(ellipse at 60% 40%, #2a1500 0%, #0a0800 70%);
+    background: radial-gradient(ellipse at 60% 40%, var(--login-grad-1) 0%, var(--login-grad-2) 70%);
   }
 
   .login-box {
@@ -915,7 +934,120 @@
     height: calc(56px + env(safe-area-inset-bottom));
   }
   #app { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+
+  /* theme switch link on login screen */
+  .theme-link {
+    display: block;
+    margin: 16px auto 0;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+  }
+  .theme-link:hover { color: var(--text); border-color: var(--accent); }
+
+  /* ════ SMARTERS LAYOUT (applied together with the blue theme) ════ */
+  :root[data-theme="smarters"] .topbar {
+    height: 60px;
+    background: linear-gradient(90deg, var(--surface) 0%, var(--bg) 100%);
+    box-shadow: 0 2px 14px rgba(0,0,0,0.45);
+  }
+  :root[data-theme="smarters"] .topbar-logo .logo-icon {
+    width: 32px; height: 32px; border-radius: 9px;
+    box-shadow: 0 4px 14px rgba(47,128,237,0.45);
+  }
+  :root[data-theme="smarters"] .topbar-logo .logo-text { font-size: 17px; letter-spacing: 0.3px; }
+
+  :root[data-theme="smarters"] .sidebar { width: 300px; background: var(--bg); }
+
+  /* segmented pill tabs */
+  :root[data-theme="smarters"] .tabs {
+    border-bottom: none;
+    gap: 6px;
+    padding: 12px 12px 6px;
+  }
+  :root[data-theme="smarters"] .tab-btn {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 10px 4px;
+    margin-bottom: 0;
+    text-transform: none;
+    letter-spacing: 0.2px;
+    font-weight: 600;
+  }
+  :root[data-theme="smarters"] .tab-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(47,128,237,0.4);
+  }
+  :root[data-theme="smarters"] .tab-btn:hover:not(.active) { background: var(--card); color: var(--text); }
+
+  /* rounded category pills */
+  :root[data-theme="smarters"] .categories { padding: 10px 12px; max-height: 150px; }
+  :root[data-theme="smarters"] .cat-btn { border-radius: 20px; padding: 7px 14px; margin-bottom: 4px; }
+  :root[data-theme="smarters"] .cat-btn.active {
+    background: rgba(47,128,237,0.18);
+    color: var(--accent2);
+  }
+
+  /* channel rows as cards */
+  :root[data-theme="smarters"] .channel-list { padding: 10px 12px; }
+  :root[data-theme="smarters"] .channel-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    transition: transform 0.12s, background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  }
+  :root[data-theme="smarters"] .channel-item:hover {
+    background: var(--card);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+  }
+  :root[data-theme="smarters"] .channel-item.active {
+    background: linear-gradient(135deg, rgba(47,128,237,0.24), rgba(86,160,245,0.10));
+    border-color: var(--accent);
+    box-shadow: 0 6px 18px rgba(47,128,237,0.25);
+  }
+  :root[data-theme="smarters"] .ch-icon { width: 44px; height: 44px; border-radius: 11px; }
+  :root[data-theme="smarters"] .ch-name { font-size: 13px; }
+
+  /* framed player + floating now-playing bar */
+  :root[data-theme="smarters"] .player-area { padding: 14px; gap: 12px; }
+  :root[data-theme="smarters"] .video-wrap {
+    border-radius: 16px;
+    box-shadow: 0 12px 34px rgba(0,0,0,0.55);
+  }
+  :root[data-theme="smarters"] .now-playing-bar {
+    border: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+  }
+  :root[data-theme="smarters"] .ctrl-btn { border-radius: 10px; }
+
+  /* mobile: keep the framed player edge-to-edge so it doesn't shrink too much */
+  @media (max-width: 768px) {
+    :root[data-theme="smarters"] .player-area { padding: 0; gap: 0; }
+    :root[data-theme="smarters"] .video-wrap { border-radius: 0; }
+    :root[data-theme="smarters"] .now-playing-bar { border-radius: 0; border-left: none; border-right: none; }
+  }
 </style>
+<script>
+  // Apply saved theme before first paint to avoid a flash of the wrong theme
+  try {
+    var _t = localStorage.getItem('orbital_theme');
+    if (_t) document.documentElement.setAttribute('data-theme', _t);
+  } catch(e) {}
+</script>
 </head>
 <body>
 
@@ -963,6 +1095,8 @@
       Connects to any Xtream Codes / Xtream UI compatible server.<br>
       Saved credentials are stored only in your browser.
     </p>
+
+    <button class="theme-link" id="theme-link" onclick="toggleTheme()">🎨 Theme: Orbital</button>
   </div>
 </div>
 
@@ -983,6 +1117,7 @@
     </div>
     <button class="logout-btn" onclick="doLogout()">Disconnect</button>
     <button class="epg-toggle-btn" id="epg-toggle-btn" onclick="toggleEpg()" title="Show/hide EPG">📅 EPG</button>
+    <button class="epg-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Switch theme">🎨 Theme</button>
   </div>
 
   <div class="main">
@@ -2114,6 +2249,39 @@ function esc(s) {
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
 });
+
+// ── THEME ──
+const THEME_KEY = 'orbital_theme';
+
+function currentTheme() {
+  return document.documentElement.getAttribute('data-theme') || 'orbital';
+}
+
+function setTheme(name) {
+  if (name === 'orbital') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', name);
+  }
+  try { localStorage.setItem(THEME_KEY, name); } catch(e) {}
+  updateThemeUI();
+}
+
+function toggleTheme() {
+  setTheme(currentTheme() === 'smarters' ? 'orbital' : 'smarters');
+}
+
+function updateThemeUI() {
+  const cur = currentTheme();
+  const label = cur === 'smarters' ? 'Smarters' : 'Orbital';
+  const link = document.getElementById('theme-link');
+  if (link) link.textContent = '🎨 Theme: ' + label;
+  // keep PWA status-bar / browser-chrome colour in sync with the theme
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', cur === 'smarters' ? '#2f80ed' : '#f97316');
+}
+
+updateThemeUI();
 
 // Load saved credentials on startup, and auto-connect if they exist
 loadSavedCreds();
