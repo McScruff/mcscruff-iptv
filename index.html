@@ -2115,9 +2115,21 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
 });
 
-// Load saved credentials on startup
+// Load saved credentials on startup, and auto-connect if they exist
 loadSavedCreds();
 checkHttpWarn();
+autoLogin();
+
+function autoLogin() {
+  // Only auto-login when credentials were saved (remember was on)
+  const hasSaved = document.getElementById('in-server').value &&
+                   document.getElementById('in-user').value &&
+                   document.getElementById('in-pass').value;
+  if (!hasSaved) return;
+  // doLogin() reads the populated fields; on failure it falls back to
+  // the login screen with an error message, so no extra handling needed.
+  doLogin();
+}
 
 // ── SERVICE WORKER (PWA) ──
 if ('serviceWorker' in navigator) {
