@@ -1040,6 +1040,98 @@
     :root[data-theme="smarters"] .video-wrap { border-radius: 0; }
     :root[data-theme="smarters"] .now-playing-bar { border-radius: 0; border-left: none; border-right: none; }
   }
+
+  /* ════ DASHBOARD HOME ════ */
+  .home-btn {
+    display: none;            /* shown only in Smarters theme */
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .home-btn:hover { color: var(--text); border-color: var(--accent); }
+  :root[data-theme="smarters"] .home-btn { display: inline-block; }
+  :root[data-theme="smarters"] .topbar-logo { cursor: pointer; }
+
+  #dashboard {
+    display: none;            /* toggled by JS */
+    flex: 1;
+    overflow-y: auto;
+    background: radial-gradient(ellipse at 50% 0%, var(--login-grad-1) 0%, var(--bg) 60%);
+  }
+  #dashboard.visible { display: flex; }
+
+  .dash-inner {
+    margin: auto;
+    width: 100%;
+    max-width: 1000px;
+    padding: 48px 32px;
+  }
+
+  .dash-greeting { margin-bottom: 32px; text-align: center; }
+  .dash-hello { font-size: 28px; font-weight: 600; letter-spacing: 0.2px; }
+  .dash-sub { font-size: 14px; color: var(--muted); margin-top: 6px; }
+
+  .dash-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .dash-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    aspect-ratio: 1 / 1;
+    justify-content: flex-end;
+    padding: 24px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  }
+  .dash-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.16;
+    background: linear-gradient(135deg, var(--accent), transparent 70%);
+    transition: opacity 0.15s;
+  }
+  .dash-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  }
+  .dash-card:hover::before { opacity: 0.3; }
+  .dash-card.vod::before    { background: linear-gradient(135deg, #a855f7, transparent 70%); }
+  .dash-card.series::before { background: linear-gradient(135deg, #14b8a6, transparent 70%); }
+
+  .dash-card-icon { font-size: 44px; position: relative; margin-bottom: auto; }
+  .dash-card-title { font-size: 22px; font-weight: 600; position: relative; }
+  .dash-card-sub { font-size: 13px; color: var(--muted); position: relative; }
+
+  @media (max-width: 700px) {
+    .dash-cards { grid-template-columns: 1fr; gap: 14px; }
+    .dash-card { aspect-ratio: auto; flex-direction: row; align-items: center; gap: 16px; justify-content: flex-start; padding: 20px; }
+    .dash-card-icon { font-size: 34px; margin-bottom: 0; }
+    .dash-card-title { font-size: 18px; }
+    .dash-card-sub { display: none; }
+    .dash-inner { padding: 28px 18px; }
+    .dash-hello { font-size: 22px; }
+  }
 </style>
 <script>
   // Apply saved theme before first paint to avoid a flash of the wrong theme
@@ -1103,10 +1195,11 @@
 <!-- ══ APP ══ -->
 <div id="app">
   <div class="topbar">
-    <div class="topbar-logo">
+    <div class="topbar-logo" onclick="goHome()">
       <div class="logo-icon">▶</div>
       <div class="logo-text">Orbital <span>Lite</span></div>
     </div>
+    <button class="home-btn" id="home-btn" onclick="goHome()" title="Home">⌂ Home</button>
     <div class="topbar-info">
       <div class="status-dot"></div>
       <div class="server-badge" id="server-badge">—</div>
@@ -1118,6 +1211,33 @@
     <button class="logout-btn" onclick="doLogout()">Disconnect</button>
     <button class="epg-toggle-btn" id="epg-toggle-btn" onclick="toggleEpg()" title="Show/hide EPG">📅 EPG</button>
     <button class="epg-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Switch theme">🎨 Theme</button>
+  </div>
+
+  <!-- dashboard home (Smarters theme) -->
+  <div id="dashboard">
+    <div class="dash-inner">
+      <div class="dash-greeting">
+        <div class="dash-hello">Welcome back</div>
+        <div class="dash-sub" id="dash-sub">Choose what to watch</div>
+      </div>
+      <div class="dash-cards">
+        <button class="dash-card live" onclick="openSection('live')">
+          <div class="dash-card-icon">📺</div>
+          <div class="dash-card-title">Live TV</div>
+          <div class="dash-card-sub">Channels &amp; EPG</div>
+        </button>
+        <button class="dash-card vod" onclick="openSection('vod')">
+          <div class="dash-card-icon">🎬</div>
+          <div class="dash-card-title">Movies</div>
+          <div class="dash-card-sub">Video on demand</div>
+        </button>
+        <button class="dash-card series" onclick="openSection('series')">
+          <div class="dash-card-icon">📚</div>
+          <div class="dash-card-title">Series</div>
+          <div class="dash-card-sub">Shows &amp; episodes</div>
+        </button>
+      </div>
+    </div>
   </div>
 
   <div class="main">
@@ -1430,11 +1550,46 @@ function initApp() {
     document.getElementById('acct-exp').classList.add('warn');
   }
 
-  loadTab('live');
+  const sub = document.getElementById('dash-sub');
+  if (sub) sub.textContent = 'Signed in as ' + cfg.user;
+
+  if (currentTheme() === 'smarters') {
+    showDashboard();
+  } else {
+    loadTab('live');
+  }
+}
+
+// ── DASHBOARD HOME ──
+function showDashboard() {
+  document.querySelector('.main').style.display = 'none';
+  document.getElementById('dashboard').classList.add('visible');
+}
+
+function openSection(tab) {
+  const order = { live: 0, vod: 1, series: 2 };
+  const btn = document.querySelectorAll('.tabs .tab-btn')[order[tab]];
+  if (btn) switchTab(tab, btn);
+  // on mobile the sidebar is hidden, so reveal the channel drawer + sync bottom nav
+  if (window.matchMedia('(max-width: 700px)').matches) {
+    document.querySelectorAll('.mnav-btn').forEach(b => b.classList.remove('active'));
+    const id = TAB_TO_MNAV[tab];
+    if (id) document.getElementById(id)?.classList.add('active');
+    openMobileDrawer('channels');
+  }
+}
+
+function goHome() {
+  // Dashboard is a Smarters-theme feature; in Orbital the logo/home do nothing
+  if (currentTheme() !== 'smarters') return;
+  showDashboard();
 }
 
 // ── TABS ──
 function switchTab(tab, el) {
+  // ensure we're out of the dashboard and into the list view
+  document.getElementById('dashboard')?.classList.remove('visible');
+  document.querySelector('.main').style.display = 'flex';
   currentTab = tab;
   activeCategory = 'all';
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -2279,6 +2434,11 @@ function updateThemeUI() {
   // keep PWA status-bar / browser-chrome colour in sync with the theme
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', cur === 'smarters' ? '#2f80ed' : '#f97316');
+  // leaving Smarters while the dashboard is open: fall back into the list view
+  if (cur !== 'smarters') {
+    const dash = document.getElementById('dashboard');
+    if (dash && dash.classList.contains('visible')) openSection('live');
+  }
 }
 
 updateThemeUI();
