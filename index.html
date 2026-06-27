@@ -114,8 +114,55 @@
     text-transform: uppercase;
   }
 
+  .login-mode {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+  }
+  .login-mode-btn {
+    flex: 1;
+    padding: 9px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .login-mode-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+  }
+
   .field {
     margin-bottom: 14px;
+  }
+
+  .field textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 10px 12px;
+    outline: none;
+    resize: vertical;
+    min-height: 70px;
+  }
+  .field textarea:focus { border-color: var(--accent); }
+  .field input[type="file"] {
+    width: 100%;
+    font-size: 12px;
+    color: var(--muted);
   }
 
   .field label {
@@ -1150,19 +1197,41 @@
       <div class="logo-icon">▶</div>
       <div class="logo-text">Orbital <span>Lite</span></div>
     </div>
-    <div class="login-title">Xtream Codes Login</div>
+    <div class="login-title" id="login-title">Xtream Codes Login</div>
 
-    <div class="field">
-      <label>Server URL</label>
-      <input id="in-server" type="url" placeholder="http://your-server.com:8080" oninput="checkHttpWarn()" />
+    <div class="login-mode">
+      <button type="button" class="login-mode-btn active" id="mode-xtream" onclick="setLoginMode('xtream')">Xtream Codes</button>
+      <button type="button" class="login-mode-btn" id="mode-m3u" onclick="setLoginMode('m3u')">M3U Playlist</button>
     </div>
-    <div class="field">
-      <label>Username</label>
-      <input id="in-user" type="text" placeholder="username" autocomplete="off" />
+
+    <div id="xtream-fields">
+      <div class="field">
+        <label>Server URL</label>
+        <input id="in-server" type="url" placeholder="http://your-server.com:8080" oninput="checkHttpWarn()" />
+      </div>
+      <div class="field">
+        <label>Username</label>
+        <input id="in-user" type="text" placeholder="username" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input id="in-pass" type="password" placeholder="password" />
+      </div>
     </div>
-    <div class="field">
-      <label>Password</label>
-      <input id="in-pass" type="password" placeholder="password" />
+
+    <div id="m3u-fields" style="display:none">
+      <div class="field">
+        <label>Playlist name (optional)</label>
+        <input id="in-m3u-name" type="text" placeholder="My Playlist" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>M3U URL</label>
+        <input id="in-m3u-url" type="url" placeholder="http://host/get.php?...type=m3u_plus" />
+      </div>
+      <div class="field">
+        <label>…or load a .m3u file</label>
+        <input id="in-m3u-file" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/x-mpegurl" onchange="onM3uFile(this)" />
+      </div>
     </div>
 
     <div class="remember-row">
@@ -1183,7 +1252,7 @@
       Chrome/Brave Settings → Site Settings → Insecure content → allow for this site.
     </div>
 
-    <p class="login-note">
+    <p class="login-note" id="login-note">
       Connects to any Xtream Codes / Xtream UI compatible server.<br>
       Saved credentials are stored only in your browser.
     </p>
@@ -1380,6 +1449,9 @@ let filtered = [];
 let categories = [];
 let currentTab = 'live';
 let activeCategory = 'all';
+let loginMode = 'xtream';   // 'xtream' | 'm3u'
+let m3uData = null;         // { live:{items,cats}, vod:{...}, series:{...} } when in m3u mode
+let m3uFileText = '';       // contents of an uploaded .m3u file (overrides URL)
 let hlsInstance  = null;
 let mpegtsPlayer = null;
 let dashPlayer   = null;
@@ -1451,9 +1523,16 @@ function loadSavedCreds() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     const saved = JSON.parse(raw);
-    if (saved.server) document.getElementById('in-server').value = saved.server;
-    if (saved.user)   document.getElementById('in-user').value   = saved.user;
-    if (saved.pass)   document.getElementById('in-pass').value   = saved.pass;
+    if (saved.mode === 'm3u') {
+      setLoginMode('m3u');
+      if (saved.m3uUrl)  document.getElementById('in-m3u-url').value  = saved.m3uUrl;
+      if (saved.m3uName) document.getElementById('in-m3u-name').value = saved.m3uName;
+    } else {
+      setLoginMode('xtream');
+      if (saved.server) document.getElementById('in-server').value = saved.server;
+      if (saved.user)   document.getElementById('in-user').value   = saved.user;
+      if (saved.pass)   document.getElementById('in-pass').value   = saved.pass;
+    }
     document.getElementById('remember-me').checked = true;
     document.getElementById('clear-saved-btn').style.display = 'block';
   } catch(e) {}
@@ -1467,9 +1546,9 @@ function toggleRemember() {
   document.getElementById('clear-saved-btn').style.display = checked ? 'block' : 'none';
 }
 
-function saveCreds(server, user, pass) {
+function saveCreds(data) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ server, user, pass }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch(e) {}
 }
 
@@ -1482,11 +1561,38 @@ function clearSaved() {
 // ── LOGIN ──
 function checkHttpWarn() {
   const val = document.getElementById('in-server').value.trim();
-  const show = val.startsWith('http://');
+  const show = loginMode === 'xtream' && val.startsWith('http://');
   document.getElementById('http-warning').style.display = show ? 'block' : 'none';
 }
 
-async function doLogin() {
+function setLoginMode(mode) {
+  loginMode = mode;
+  const isM3u = mode === 'm3u';
+  document.getElementById('xtream-fields').style.display = isM3u ? 'none' : 'block';
+  document.getElementById('m3u-fields').style.display    = isM3u ? 'block' : 'none';
+  document.getElementById('mode-xtream').classList.toggle('active', !isM3u);
+  document.getElementById('mode-m3u').classList.toggle('active', isM3u);
+  document.getElementById('login-title').textContent = isM3u ? 'M3U Playlist' : 'Xtream Codes Login';
+  document.getElementById('login-note').innerHTML = isM3u
+    ? 'Load any M3U / M3U8 playlist by URL or file.<br>Some hosts block browser access (CORS) — use the file option if a URL fails.'
+    : 'Connects to any Xtream Codes / Xtream UI compatible server.<br>Saved credentials are stored only in your browser.';
+  checkHttpWarn();
+}
+
+function onM3uFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) { m3uFileText = ''; return; }
+  const reader = new FileReader();
+  reader.onload = e => { m3uFileText = e.target.result || ''; };
+  reader.readAsText(file);
+}
+
+function doLogin() {
+  if (loginMode === 'm3u') return doLoginM3u();
+  return doLoginXtream();
+}
+
+async function doLoginXtream() {
   const server = document.getElementById('in-server').value.trim().replace(/\/$/, '');
   const user   = document.getElementById('in-user').value.trim();
   const pass   = document.getElementById('in-pass').value.trim();
@@ -1513,9 +1619,9 @@ async function doLogin() {
       throw new Error('Invalid credentials');
     }
 
-    if (remember) saveCreds(server, user, pass);
+    if (remember) saveCreds({ mode: 'xtream', server, user, pass });
 
-    cfg = { server, user, pass, info: data.user_info };
+    cfg = { mode: 'xtream', server, user, pass, info: data.user_info };
     initApp();
   } catch (e) {
     showErr(e.message || 'Could not connect. Check URL and credentials.');
@@ -1529,29 +1635,151 @@ async function doLogin() {
   }
 }
 
+async function doLoginM3u() {
+  const m3uUrl  = document.getElementById('in-m3u-url').value.trim();
+  const m3uName = document.getElementById('in-m3u-name').value.trim();
+  const errEl   = document.getElementById('login-error');
+  const btn     = document.getElementById('login-btn');
+  const remember = document.getElementById('remember-me').checked;
+
+  errEl.style.display = 'none';
+
+  if (!m3uUrl && !m3uFileText) {
+    showErr('Enter an M3U URL or choose a file.'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+
+  try {
+    let text = m3uFileText;
+    if (!text) {
+      const res = await fetch(m3uUrl);
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      text = await res.text();
+    }
+
+    const items = parseM3U(text);
+    if (!items.length) throw new Error('No channels found in playlist.');
+
+    m3uData = buildM3uData(items);
+    const name = m3uName || 'M3U Playlist';
+
+    // Only the URL is persisted — uploaded files can't be re-read automatically
+    if (remember && m3uUrl) saveCreds({ mode: 'm3u', m3uUrl, m3uName });
+
+    cfg = { mode: 'm3u', name, count: items.length };
+    initApp();
+  } catch (e) {
+    const msg = /Failed to fetch|NetworkError/i.test(e.message || '')
+      ? 'Could not fetch playlist (likely blocked by CORS). Try the file option instead.'
+      : (e.message || 'Could not load playlist.');
+    showErr(msg);
+    btn.disabled = false;
+    btn.textContent = 'Connect';
+  }
+
+  function showErr(msg) {
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+  }
+}
+
+// ── M3U PARSING ──
+function parseM3U(text) {
+  const lines = String(text).split(/\r?\n/);
+  const items = [];
+  let cur = null;
+  for (let raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith('#EXTINF')) {
+      const info = line.slice(line.indexOf(':') + 1);
+      const commaIdx = info.lastIndexOf(',');
+      const attrs = commaIdx >= 0 ? info.slice(0, commaIdx) : info;
+      const title = commaIdx >= 0 ? info.slice(commaIdx + 1).trim() : '';
+      const attr = k => {
+        const m = attrs.match(new RegExp(k + '="([^"]*)"', 'i'));
+        return m ? m[1] : '';
+      };
+      cur = {
+        name: title || attr('tvg-name') || 'Unknown',
+        stream_icon: attr('tvg-logo'),
+        group: attr('group-title') || 'Uncategorized',
+        tvg_id: attr('tvg-id'),
+      };
+    } else if (line.startsWith('#')) {
+      // #EXTGRP, #EXTVLCOPT, #EXTM3U etc. — ignored
+      continue;
+    } else {
+      // a URL line
+      if (!cur) cur = { name: 'Unknown', stream_icon: '', group: 'Uncategorized' };
+      cur.url = line;
+      items.push(cur);
+      cur = null;
+    }
+  }
+  return items;
+}
+
+// Split a flat M3U into Live / VOD sections with per-group categories
+function buildM3uData(items) {
+  const VOD_EXT = /\.(mp4|mkv|avi|mov|flv|m4v|webm|wmv|mpg|mpeg)$/i;
+  const live = [], vod = [];
+  items.forEach(it => {
+    const path = (it.url || '').split('?')[0];
+    const ext = path.split('.').pop().toLowerCase();
+    const isVod = VOD_EXT.test(path);
+    const bucket = isVod ? vod : live;
+    bucket.push({
+      name: it.name,
+      stream_icon: it.stream_icon,
+      category_id: 'g:' + it.group,
+      category_name: it.group,
+      num: bucket.length + 1,
+      container_extension: isVod ? ext : '',
+      _url: it.url,
+      _isLive: !isVod,
+    });
+  });
+  return { live: makeM3uSection(live), vod: makeM3uSection(vod), series: makeM3uSection([]) };
+}
+
+function makeM3uSection(items) {
+  const seen = new Map();
+  items.forEach(it => { if (!seen.has(it.category_id)) seen.set(it.category_id, it.category_name); });
+  const cats = [...seen].map(([id, name]) => ({ category_id: id, category_name: name }));
+  return { items, cats };
+}
+
 // ── INIT APP ──
 function initApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
 
-  const host = new URL(cfg.server).hostname;
-  document.getElementById('server-badge').textContent = `${cfg.user}@${host}`;
+  if (cfg.mode === 'm3u') {
+    document.getElementById('server-badge').textContent = cfg.name;
+    document.getElementById('account-panel').style.display = 'none';
+  } else {
+    const host = new URL(cfg.server).hostname;
+    document.getElementById('server-badge').textContent = `${cfg.user}@${host}`;
 
-  const ui = cfg.info;
-  const expDate = ui.exp_date
-    ? new Date(parseInt(ui.exp_date) * 1000).toLocaleDateString()
-    : 'Unlimited';
-  document.getElementById('acct-status').textContent  = ui.status || 'active';
-  document.getElementById('acct-exp').textContent     = expDate;
-  document.getElementById('acct-conn').textContent    = `${ui.active_cons}/${ui.max_connections}`;
-  document.getElementById('account-panel').style.display = 'block';
+    const ui = cfg.info;
+    const expDate = ui.exp_date
+      ? new Date(parseInt(ui.exp_date) * 1000).toLocaleDateString()
+      : 'Unlimited';
+    document.getElementById('acct-status').textContent  = ui.status || 'active';
+    document.getElementById('acct-exp').textContent     = expDate;
+    document.getElementById('acct-conn').textContent    = `${ui.active_cons}/${ui.max_connections}`;
+    document.getElementById('account-panel').style.display = 'block';
 
-  if (parseInt(ui.exp_date) < Date.now()/1000) {
-    document.getElementById('acct-exp').classList.add('warn');
+    if (parseInt(ui.exp_date) < Date.now()/1000) {
+      document.getElementById('acct-exp').classList.add('warn');
+    }
   }
 
   const sub = document.getElementById('dash-sub');
-  if (sub) sub.textContent = 'Signed in as ' + cfg.user;
+  if (sub) sub.textContent = cfg.mode === 'm3u' ? cfg.name : 'Signed in as ' + cfg.user;
 
   if (currentTheme() === 'smarters') {
     showDashboard();
@@ -1602,6 +1830,15 @@ async function loadTab(tab) {
   const list = document.getElementById('channel-list');
   list.innerHTML = '<div class="no-channels">Loading…</div>';
   document.getElementById('cat-list').innerHTML = '';
+
+  if (cfg.mode === 'm3u') {
+    const section = (m3uData && m3uData[tab]) || { items: [], cats: [] };
+    categories = section.cats;
+    allItems   = section.items;
+    renderCategories();
+    renderChannels(allItems);
+    return;
+  }
 
   let catUrl, streamUrl;
   if (tab === 'live') {
@@ -1755,6 +1992,22 @@ function playItem(ch, el, name) {
 
   // Hide VOD overlay panel for live
   document.getElementById('vod-panel').style.display = 'none';
+
+  // ── M3U: play the direct stream URL from the playlist ──
+  if (cfg.mode === 'm3u') {
+    const url = ch._url;
+    const format = CODEC.detect(url, ch.container_extension);
+    if (ch._isLive) {
+      updateNowPlaying(name, true, null);
+      clearEpg();
+    } else {
+      updateNowPlaying(name, false, ch);
+      showVodPanel(name, ch, format);
+      clearEpg();
+    }
+    loadStream(url, name, ch._isLive, format);
+    return;
+  }
 
   let url, format;
   if (currentTab === 'live') {
@@ -2383,7 +2636,7 @@ function toggleFullscreen() {
 
 // ── LOGOUT ──
 function doLogout() {
-  cfg = {}; allItems = []; categories = []; epgCache = {};
+  cfg = {}; allItems = []; categories = []; epgCache = {}; m3uData = null; m3uFileText = '';
   if (epgTimer) { clearInterval(epgTimer); epgTimer = null; }
   const player = document.getElementById('player');
   destroyEngines(player);
@@ -2450,9 +2703,11 @@ autoLogin();
 
 function autoLogin() {
   // Only auto-login when credentials were saved (remember was on)
-  const hasSaved = document.getElementById('in-server').value &&
-                   document.getElementById('in-user').value &&
-                   document.getElementById('in-pass').value;
+  const hasSaved = loginMode === 'm3u'
+    ? !!document.getElementById('in-m3u-url').value
+    : (document.getElementById('in-server').value &&
+       document.getElementById('in-user').value &&
+       document.getElementById('in-pass').value);
   if (!hasSaved) return;
   // doLogin() reads the populated fields; on failure it falls back to
   // the login screen with an error message, so no extra handling needed.

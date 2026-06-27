@@ -2,7 +2,7 @@
 // Caches the app shell so it loads instantly and works offline (login screen)
 // Stream data is always fetched live — never cached
 
-const CACHE = 'orbital-lite-v21';
+const CACHE = 'orbital-lite-v22';
 
 // App shell — files to cache on install
 const SHELL = [
@@ -46,10 +46,12 @@ self.addEventListener('fetch', event => {
   // Never cache IPTV API calls or stream URLs
   if (
     url.pathname.includes('player_api.php') ||
+    url.pathname.includes('get.php') ||
     url.pathname.includes('/live/') ||
     url.pathname.includes('/movie/') ||
     url.pathname.includes('/series/') ||
     url.pathname.endsWith('.m3u8') ||
+    url.pathname.endsWith('.m3u') ||
     url.pathname.endsWith('.ts') ||
     url.pathname.endsWith('.mpd') ||
     url.pathname.endsWith('.mp4')
